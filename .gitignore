@@ -1,0 +1,5 @@
+.env
+node_modules/
+agent-workspace/.claude/
+agent-workspace/.claude-flow/
+agent-workspace/CLAUDE.md
