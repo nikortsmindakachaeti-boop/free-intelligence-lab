@@ -1,0 +1,91 @@
+name: free-intelligence-lab
+
+services:
+  portal:
+    build: ./portal
+    ports:
+      - "127.0.0.1:8088:8088"
+    environment:
+      PORT: "8088"
+      OLLAMA_URL: http://ollama:11434
+    restart: unless-stopped
+
+  osiris:
+    image: ghcr.io/simplifaisoul/osiris:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      NODE_OPTIONS: --dns-result-order=ipv4first
+    restart: unless-stopped
+
+  freellmapi:
+    image: ghcr.io/tashfeenahmed/freellmapi:latest
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:?Run ./scripts/start.sh first}"
+    volumes:
+      - freellmapi-data:/app/server/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/ping').then(x=>{if(!x.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main-slim
+    ports:
+      - "127.0.0.1:3002:8080"
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY:?Run ./scripts/start.sh first}"
+      WEBUI_AUTH: "true"
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    profiles: [search]
+    ports:
+      - "127.0.0.1:8082:8080"
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8082/
+    volumes:
+      - searxng-config:/etc/searxng
+      - searxng-cache:/var/cache/searxng
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    profiles: [memory]
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    restart: unless-stopped
+
+volumes:
+  freellmapi-data:
+  ollama-data:
+  open-webui-data:
+  searxng-config:
+  searxng-cache:
+  qdrant-data:
